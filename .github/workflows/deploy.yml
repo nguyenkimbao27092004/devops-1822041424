@@ -1,0 +1,62 @@
+name: CI/CD Deploy Website
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Kiểm tra đủ 3 file (index.html, style.css, script.js)
+        run: |
+          for file in index.html style.css script.js; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Lỗi: Thiếu file $file!"
+              exit 1
+            fi
+          done
+          echo "✅ Đã có đủ 3 file bắt buộc."
+
+      - name: Kiểm tra index.html có thẻ <title>
+        run: |
+          if ! grep -qi "<title>.*</title>" index.html; then
+            echo "❌ Lỗi: File index.html thiếu thẻ <title>!"
+            exit 1
+          fi
+          echo "✅ File index.html đã có thẻ <title>."
+
+  deploy:
+    needs: check
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cấu hình GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Đóng gói toàn bộ file website
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy lên GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
